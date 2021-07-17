@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+from os.path import abspath,expanduser,isfile
+from re import search
+from sys import argv,exit
+
+#################
+### FUNCTIONS ###
+#################
+def args():
+    try:
+        # Argument 1: Path to the SELinux module file
+        filename = abspath(expanduser(argv[1]))
+    except IndexError:
+        # If no arguments were specified, then display an error message to stdout
+        print("ERROR: Specify the 'filename.te'")
+        # Exit with an error
+        exit(1)
+    # Return the $filename
+    return(filename)
+
+def verify(filename):
+    if isfile(filename):
+        # If the $filename is an existing file, return True
+        return(True)
+    else:
+        # Otherwise, display an error message to stdout
+        print(f"ERROR: Unable to locate file: '{filename}'")
+        # Exit with an error
+        exit(1)
+
+def read(filename):
+    # Open and read the contents of $filename
+    with open(filename, 'r') as f: contents = f.readlines()
+    # Remove extraneous spaces
+    contents = [x.strip() for x in contents]
+    # Return $contents
+    return(contents)
+
+def classes(contents_allow):
+    # Define the set to contain the SELinux classes used in $filename
+    classes = set()
+    # Iterate through each entry in the $contents_allow list
+    for entry in contents_allow:
+        # The first part of the entry will be the type, and the last part will be the class
+        name = entry.split(':')[-1].split(' ')[0]
+        # Define only the class name
+        classes.add(name) 
+    # Define a new set to contain only the classes and permissions required for the current $filename
+    all_classes = set()
+    # Iterate through each class in $classes
+    for c in classes:
+        # For the current class, define only the permissions (eg. '{ create getattr read write }')
+        c_entries = [entry.split(c)[-1].strip() for entry in contents_allow if f":{c}" in entry]
+        # Iterate though each entry in $c_entries, and then only select the text that contains 'a-zA-Z ' (space at the end).
+        permissions = [search(r'[a-zA-Z_ ]+', entry) for entry in c_entries]
+        # Only use entries that are valid (eg. not Nonetype) and strip all extraneous spaces at the beginning and ending of the text. Then, join all entries via a space to create a single string. Next, split the string via the space delimiter, and then convert that list into a set in order to only keep unique entries
+        permissions = set(' '.join([p.group().strip() for p in permissions if p]).split(' '))
+        # Define the proper format and add it to the $all_classes set
+        all_classes.add('class %s { %s };' % (c, ' '.join(sorted(permissions))))
+    # Join $all_classes via newline
+    all_classes = '\n'.join(sorted(all_classes))
+    # Return the $all_classes set
+    return(all_classes)
+
+def roles(contents):
+    # Find all entries in $contents that start with 'role' AND does not contain the string 'types', which is the SELinux permission string
+    contents_role = [entry for entry in contents if entry.startswith('role') and ('types' not in entry)]
+    # Define the set to contain the SELinux roles used in $filename
+    roles = set()
+    # Iterate through each entry in the $contents_role list
+    for entry in contents_role:
+        # Split via the specified text in order to obtain only the name of the current role
+        name = entry.split('role ')[-1]
+        try:
+            # Define only the alphabetical characters and underscore as the name (eg. 'user_r;' will become 'user_r')
+            name = search('[a-zA-Z_]+', name).group()
+        except AttributeError:
+            # If there are no roles, then return an empty string
+            return('')
+        # Define the proper format and add it to the $roles set
+        roles.add(f"role {name};")
+    # Sort alphabetically and join all entries via newline to create one string that contains all roles
+    roles = '\n'.join(sorted(roles))
+    # Return the $roles string
+    return(roles)
+
+def types(contents_allow):
+    # Define the set to contain the SELinux types used in $filename
+    types = set()
+    # Iterate through each entry in the $contents_allow list
+    for entry in contents_allow:
+        # The first part of the entry will be the type, and the last part will be the class
+        name = entry.split(':')[0].split(' ')[-1]
+        # Define only the type since it will contain the 'allow name_t type' string, where we only want 'type'
+        types.add(name)
+    # For each type in $types, except for 'self' that isn't a proper type, create the string 'type $name;' where $name is the current entry. Finally, join the entire list via the newline delimiter 
+    types = '\n'.join([f"type {t};" for t in sorted(types) if t not in ('self')])
+    # Return the string containing all types
+    return(types)
+
+############
+### MAIN ###
+############
+def main(filename):
+    # Verify the $filename is a valid file
+    verify(filename)
+    # Read and obtain $filename contents
+    contents = read(filename)
+    # Define a string containing all requires roles for $filename
+    all_roles = roles(contents)
+    # Find all entries in $contents that start with 'allow', which will contain the classes and types that will need to be added to the require section
+    contents_allow = [entry for entry in contents if entry.startswith('allow')]
+    # Define a string containing all required classes and permissions for $filename
+    all_classes = classes(contents_allow)
+    # Define a string containing all required types for $filename
+    all_types = types(contents_allow)
+    # Display all classes to stdout
+    print(all_classes)
+    # If applicable, display the roles to stdout
+    if all_roles: print(all_roles)
+    # Display all types to stdout
+    print(all_types)
+
+#############
+### START ###
+#############
+if __name__ == '__main__':
+    # Obtain the SELinux module file
+    filename = args()
+    # Start the script
+    main(filename)
