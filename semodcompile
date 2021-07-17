@@ -1,0 +1,87 @@
+#!/bin/sh
+
+#############
+### USAGE ###
+#############
+function usage() {
+    name="$(basename ${0})";
+    printf "NAME\n\t${name} - script to compile and install SELinux module files\n\n";
+    printf "SYNOPSIS\n\t${name} <module>.te\n\n";
+    printf "DESCRIPTION\n\t${name} is a script provided by the Hardened Fedora project to compile and install SELinux policy modules. The only argument this script takes is the path to the <module>.te file.\n\n";
+    printf "EXAMPLES\n\t1. ${name} chromium-browser.te\n";
+    printf "\n\n";
+};
+
+################
+### PROGRAMS ###
+################
+checkmodule='/usr/bin/checkmodule';
+semodule='/usr/sbin/semodulex';
+semodule_package='/usr/bin/semodule_package';
+
+#################
+### ARGUMENTS ###
+#################
+# Argument 1: SELinux '.te' file
+te="${1}";
+
+# Verify the '.te' file has been passed by the user
+[[ ! -f "${te}" ]] && usage && echo "ERROR: Argument 1: Specify the SELinux '.te' file to compile and install" && exit 1;
+
+#################
+### FUNCTIONS ###
+#################
+function isfile() {
+    [[ ! -f "${1}" ]] && echo "ERROR: Unable to locate file: '${1}'" && exit 1;
+};
+
+function isinstalled() {
+    [[ -z $(/usr/bin/command -v "${1}") ]] && echo "ERROR: Package '${1}' is not installed, run the command \`dnf provides ${1}\` and install the specified package before continuing" && exit 1;
+};
+
+function rmfile() {
+    [[ -f "${1}" ]] && rm "${1}";
+};
+
+###############
+### PREPARE ###
+###############
+# Verify the specified packages are installed before continuing
+isinstalled "${checkmodule}";
+isinstalled "${semodule}";
+isinstalled "${semodule_package}";
+
+# Define the name of the '.mod' file that will be generated below by the `checkmodule` command 
+mod="${te%.te}.mod";
+
+# Define the name of the '.pp' file required by semodule to install the SELinux policy
+pp="${te%.te}.pp";
+
+# Remove existing "$mod" and "$pp" files
+rmfile "${mod}";
+rmfile "${pp}";
+
+########################
+### COMPILE ('.mod') ###
+########################
+# Compile the module
+${checkmodule} -M -m -o "${mod}" "${te}";
+
+# Verify the output file defined above exists
+isfile "${mod}";
+
+#######################
+### COMPILE ('.pp') ###
+#######################
+
+# Generate a '.pp' file from the '.mod' file
+"${semodule_package}" -o "${pp}" -m "${mod}"
+
+# Verify "$pp" exists
+isfile "${pp}";
+
+###############
+### INSTALL ###
+###############
+# Finally, install the '.pp' file generated above in order to load the SELinux policy
+"${semodule}" -i "${pp}";
