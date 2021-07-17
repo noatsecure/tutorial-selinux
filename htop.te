@@ -1,0 +1,68 @@
+module htop 1.0.0;
+########################################
+require {
+    attribute application_domain_type, application_exec_type, entry_type, exec_type, file_type, non_auth_file_type, non_security_file_type;
+    class chr_file { append getattr ioctl read write };
+    class dir { add_name create getattr open read search write };
+    class fd { use };
+    class file { create entrypoint execute getattr map open read write };
+    class lnk_file { read };
+    class process { noatsecure rlimitinh siginh transition };
+    class unix_stream_socket { connect create };
+    role unconfined_r;
+    type config_home_t;
+    type home_root_t;
+    type htop_exec_t;
+    type htop_t;
+    type ld_so_cache_t;
+    type ld_so_t;
+    type lib_t;
+    type proc_t;
+    type root_t;
+    type unconfined_t;
+    type user_devpts_t;
+    type user_home_dir_t;
+    type user_tty_device_t;
+    type usr_t;
+    type var_lib_t;
+    type var_run_t;
+}
+########################################
+type htop_t, application_domain_type;
+type htop_exec_t, application_exec_type, entry_type, exec_type, file_type, non_auth_file_type, non_security_file_type;
+role unconfined_r types htop_t;
+type_transition unconfined_t htop_exec_t: process htop_t;
+########################################
+#============= htop_t ==============
+allow htop_t config_home_t:dir { add_name create search write };
+allow htop_t config_home_t:file { create getattr open read write };
+allow htop_t home_root_t:dir search;
+allow htop_t htop_exec_t:file { entrypoint execute map read };
+allow htop_t ld_so_cache_t:file { getattr map open read };
+allow htop_t ld_so_t:file { execute map read };
+allow htop_t lib_t:dir search;
+allow htop_t lib_t:file { execute getattr map open read };
+allow htop_t lib_t:lnk_file read;
+allow htop_t proc_t:dir { getattr open search };
+allow htop_t proc_t:dir read;
+allow htop_t proc_t:file { getattr open read };
+allow htop_t proc_t:lnk_file read;
+allow htop_t root_t:dir search;
+allow htop_t self:dir { getattr open read search };
+allow htop_t self:file { getattr open read };
+allow htop_t self:lnk_file read;
+allow htop_t self:unix_stream_socket { connect create };
+allow htop_t unconfined_t:dir { getattr open read search };
+allow htop_t unconfined_t:fd use;
+allow htop_t unconfined_t:file { getattr open read };
+allow htop_t unconfined_t:lnk_file read;
+allow htop_t user_devpts_t:chr_file { append getattr ioctl read write };
+allow htop_t user_home_dir_t:dir search;
+allow htop_t user_tty_device_t:chr_file getattr;
+allow htop_t usr_t:dir { getattr search };
+allow htop_t usr_t:file { getattr open read };
+allow htop_t var_lib_t:dir search;
+allow htop_t var_run_t:lnk_file read;
+
+#============= unconfined_t ==============
+allow unconfined_t htop_t:process { noatsecure rlimitinh siginh transition };
