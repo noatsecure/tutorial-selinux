@@ -11,7 +11,7 @@ This guide will show users how to write a basic SELinux policy module for the pr
 
 2. Finally, this tutorial uses files contained in this directory, so make sure you clone the repository:
     
-    `$ git clone https://github.com/iamxenu/guides.git`
+    `$ git clone https://github.com/noatsecure/tutorial-selinux.git`
 
 3. Since we will be writing the SELinux module for htop, it should be installed as well:
 
@@ -76,9 +76,9 @@ As a quick explanation of this file:
    * `type_transition unconfined_t htop_exec_t: process htop_t;` allows our user, labeled as type 'unconfined_t' by default in Fedora, to start the 'htop_t' process via executing a file of type 'htop_exec_t'
 
 ## Step 2: Installing *htop.te* as a SELinux Policy Module
-Let's now compile and install this module. You can use the supplied *compile-install.sh* shell script to do so:
+Let's now compile and install this module. You can use the supplied *semodcompile* shell script to do so:
 
-   `$ sudo ./compile-install.sh htop.te`
+   `$ sudo ./semodcompile htop.te`
   
 <sub>***Note:** Compiling the module does not require root privileges but installing it does.*</sub>
 
@@ -489,7 +489,7 @@ allow unconfined_t htop_t:process { noatsecure rlimitinh siginh transition };
 
 Now recompile the *htop.te* file using the same command we used in step 2:
 
-    $ sudo ./compile-install.sh htop.te
+    $ sudo ./semodcompile htop.te
 
 ## Step 7: Adding Missing Rules
 Let's try to launch htop again:
@@ -742,7 +742,7 @@ allow htop_t var_t:dir search;
 allow unconfined_t htop_t:process { noatsecure rlimitinh siginh transition };
 ```
 
-Recompile the *htop.te* module (`$ sudo ./compile-install.sh htop.te`) and execute the htop command in your terminal emulator again:
+Recompile the *htop.te* module (`$ sudo ./semodcompile htop.te`) and execute the htop command in your terminal emulator again:
 
     $ htop
     
@@ -752,7 +752,7 @@ Success, it finally works. Now that we have htop working, let's make sure to cha
     
 At this point, we have a lot of allow statements in our *htop.te*, most of which are not needed. Tightening SELinux policy modules is part experience and part trial and error; taking htop for instance, ask yourself if htop really needs access to any systemd or NetworkManager related file or directory. When you want to test, simply comment out the lines using `#`, recompile the module, and try launching it again. If it launches and all features, at least the ones you use, are working, then those permissions are not necessary and should be removed.
 
-The *htop.te* file located in this repository has the minimal set of rules required to run htop if you want to check your *htop.te* against mine. Additionally, there is no harm in having multiple `require {}` sections or even having a long list of users, roles, classes, and types in a given `require {}` section, but to clean up the SELinux policy module I also provide a Python script, *generate_requires.py* that outputs a list of only the users, roles, classes, and types allowed in your policy. 
+The *htop.te* file located in this repository has the minimal set of rules required to run htop if you want to check your *htop.te* against mine. Additionally, there is no harm in having multiple `require {}` sections or even having a long list of users, roles, classes, and types in a given `require {}` section, but to clean up the SELinux policy module I also provide a Python script, *semodgenreq* that outputs a list of only the users, roles, classes, and types allowed in your policy. 
 
 ## Summary
 To write a SELinux policy module for a given program, you must first define new types for both the process and executable binary of the program, and additionally, define a type_transition so that your user has permission to launch the program's executable binary. Up to this point, all of this was provided in the *template.te* file that you can use to generate more SELinux policy modules.
